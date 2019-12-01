@@ -1,7 +1,7 @@
 ###Call libraries#####  
 
-pkgs <- list("glmnet", "doParallel", "foreach", "pROC","ggplot2","MASS","elasticnet","lqa",
-             "psych","caret","nnet","foreign","data.table","plyr","dplyr","mice","corrgram")
+pkgs <- list("glmnet", "doParallel", "foreach", "pROC","ggplot2","MASS","elasticnet","lqa","car",
+             "psych","caret","nnet","foreign","data.table","plyr","dplyr","mice","corrgram","reader","pscl","devtools","AMAZonn")
 lapply(pkgs, require, character.only = T)
 ###Call data####
 set.seed(2)
@@ -11,6 +11,15 @@ d<-as.data.frame(d[,])
 View(d)
 head(d)
 dim(d)
+
+impute<- mice(d[,],m=6)
+print(impute)
+dim(impute)
+da1<-complete(impute,2)
+stripplot(impute,pch=20,cex=1)
+
+
+table(d$Conditioning)
 d<- d[1:2784,c(25,26)]
 y<-d
  is.na(d)
@@ -20,37 +29,15 @@ y<-d
  sapply(d, function(x) sum(is.na(x)))
  sapply(d, function(x) mean(x))
  md.pattern(d[,c("Yo.Yo.fitness.score","Cumulative.Match...Training")])
- imp<-mice(data = d[,c("Yo.Yo.fitness.score","Cumulative.Match...Training")], seed = 22)
+ imp<-mice(data = d[,c(1:27)], seed = 22)
  print(imp)
  head(imp$imp$Yo.Yo.fitness.score)
  stripplot(imp,Yo.Yo.fitness.score~Cumulative.Match...Training|.imp, pch=20)
  dat.imp<-complete(imp)
- head(dat.imp, n=30)
- head(d[,Yo.Yo.fitness.score], n=30)
- head(dat.imp[is.na(d$Yo.Yo.fitness.score)==T,], n=30)
- head(d[is.na(d$Yo.Yo.fitness.score)==T,"Yo.Yo.fitness.score"], n=10)
- fit.bmi<-with(data=imp,exp=lm(Yo.Yo.fitness.score~d$Cumulative.Match...Training))
- fit.bmi
- 
- summary(lm(Yo.Yo.fitness.score~d$Cumulative.Match...Training, data=d))
- est.p<-pool(fit.bmi)
- print(est.p)
- summary(lm(Yo.Yo.fitness.score~d$Cumulative.Match...Training, data=d))
- coefs<-matrix(unlist(lapply(fit.bmi$analyses, coef)), nrow=5, ncol=4, byrow=T)
- 
- #plot the coefficients from each of the different rounds of imputation to see the variability in the
- #results
- plot(coefs[1,-1], ylim=c(-8, 8), xaxt="n",cex=1.5, pch=20, ylab="beta")
- axis(1, at=1:10,labels=names(fit.bmi$analyses[[1]]$coef[-1]))
- cols=2:5
- for(i in 1:dim(coefs)[1]-1){
-   points(coefs[i+1,-1], col=cols[i], cex=1.5, pch=20)
- }
- title(main="Estimated Betas from Each Imputed Regression Model for BMI Outcome")
  
 #pairs(d[,10:18], pch = 20,col=2)###
  set.seed(2)
- setwd("C:/Users/keele university/Documents/R/Fraser")
+ fff2 <- read_csv("~/R/Fraser/fff2.csv")
  d<-read.csv("ff2.csv",header=TRUE)
  dim(d)
  d<-as.data.frame(d[1:2784,-c(29,30,31)])
@@ -66,24 +53,24 @@ corrgram(x, order=NULL, panel=panel.shade, text.panel=panel.txt,
          main="Correlogram") 
 #count(d,"Artificial.turf.3G")
 ###Checking the multi_collinearity level using the Varaince inflation factor###
-fit1<- lm(SKF~ï..Height+Weight+ Time.in.activity +Match+ Training+ Conditioning +Sandastro +Grass+ Artificial.turf.3G+
+fit1<- lm(SKF~Ã¯..Height+Weight+ Time.in.activity +Match+ Training+ Conditioning +Sandastro +Grass+ Artificial.turf.3G+
           Previous.injuries+ Inseason.injuries+Cumulative.match.volume +Cumulative.match.Grass.volume +total.all..training.
           +total.training.volume...excluding.futsal.and.conditioning.+ total.training.Artificial.turf.3G.volume...excluding.futsal.and.conditioning.
           + total.training.futsal.volume+ total.training.Grass.volume..excluding.futsal.and.conditioning.,data=d)
 summary(fit1)
-library(car)
 vif(fit1)
-
 y<-as.matrix(d[,28])
 #y<-factor(y,levels = 1:3,labels = c("smimple","mild","severe"))
 plot(y)
 x<-as.matrix(d[, c(1:27)])
 #########################
-setwd("C:/Users/keele university/Documents/R/Fraser")
-d<-read.csv("fff2.csv" )
-d<-as.data.frame(d[1:2784,-c(29,30,31)])
+d<-read_csv("~/R/Fraser/fff2.csv")
+d<-read.csv("fff2.csv",header=TRUE)
 dim(d)
 head(d,6)
+summary(d)
+## test the distribution ofa data###
+apply(d,2,table)
 plot(table(d$y1), xlab = "Number of physician office visits",
      ylab = "Frequency", axes = FALSE)
 axis(2)
@@ -93,14 +80,135 @@ dim(d)
 y<-as.matrix(d[,27])
 x<-as.matrix(d[,1:26])
 
-
 #x<-as.data.frame(x)
 x.train<-x
 y.train<-y
 ########
+library(mpath)
+library(zic)
+library(pscl)
+
+###Full ZIP model with all predictor variables###
+
+m1 <- zeroinfl(y1~Ã¯..x1+x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x13+x14+x15 +x17+x18+x19+x21+x22+x26  
+               |Ã¯..x1+x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x14+x15+x17+x18+x19+x21+x22+x26, data = d, dist = "poisson")
+ summary(m1)
+
+ cat("loglik of zero-inflated model", logLik(m1))
+ cat("BIC of zero-inflated model", AIC(m1, k = log(dim(d)[1])))
+ cat("AIC of zero-inflated model", AIC(m1))
+
+####Backward stepwise variable selection with significance level alpha=0.01##
+
+fitbe <- be.zeroinfl(m1, data = d, dist = "poisson",
+                     alpha = 0.015, trace = FALSE)
+ summary(fitbe)
+ cat("loglik of zero-inflated model with backward selection",
+     logLik(fitbe))
+ cat("BIC of zero-inflated model with backward selection",
+     AIC(fitbe, k = log(dim(d)[1])))
+ cat("AIC of zero-inflated model", AIC(fitbe ))
+####Compute enet estimates###
+ fit.lasso <- zipath(y1 ~ . | ., data = d, family = "poisson",
+                    nlambda = 10, lambda.zero.min.ratio = 0.0011, 
+                    maxit.theta = FALSE, trace = FALSE,standardize=TRUE,
+                    penalty = "enet", rescale = TRUE)
+
+minBic <- which.min(BIC(fit.lasso))
+
+coef(fit.lasso, minBic)
+fit.lasso$lambda.count
+#cat("theta estimate", fit.lasso$theta[minBic])
+cat("lambda.count", fit.lasso$lambda.count[minBic])
+###Compute standard errors of coefficients of LASSO:##
+se(fit.lasso, minBic, log = FALSE)
+AIC(fit.lasso)[minBic]
+BIC(fit.lasso)[minBic]
+logLik(fit.lasso)[minBic]
+########        x############
+
+####Compute log-likelihood value via 10-fold cross-validation####
+n <- dim(d)[1]
+K <- 10
+
+set.seed(197)
+ foldid <- split(sample(1:n), rep(1:K, length = n))
+ fitcv <- cv.zipath(y1 ~ . | ., data = d,
+                    family = "poisson", nlambda=10, maxit.em = 300,
+                      penalty = "enet",rescale = FALSE, foldid = foldid)
+ summary(fitcv)
+ cat("cross-validated loglik", max(fitcv$cv))
+
+minBic1 <- which.min(BIC(fitcv))
+coef(fitcv, minBic)
+AIC(fitcv)[minBic]
+BIC(fit.lasso)[minBic]
+  
+
+tmp <- zipath(y1 ~ . | ., data = d,
+              family = "poisson",
+              lambda.zero.min.ratio = 0.1,
+              maxit = 1, maxit.em = 1,  theta.fixed = FALSE,
+              penalty = "mnet")
+
+                                        
+minBic <- which.min(BIC(tmp))
+
+coef(fit.lasso, minBic)
+fit.lasso$lambda.count
+#cat("theta estimate", fit.lasso$theta[minBic])
+cat("lambda.count", fit.lasso$lambda.count[minBic])
+###Compute standard errors of coefficients of LASSO:##
+se(fit.lasso, minBic, log = FALSE)
+AIC(fit.lasso)[minBic]
+BIC(fit.lasso)[minBic]
+logLik(fit.lasso)[minBic]
+
+m1 <- zeroinfl(y1 ~ x | ., data = d, dist = "negbin")
+m1 <- pscl::zeroinfl(y1 ~x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x13+x14+x15 +x17+x18+x19+x21+x22+x26  
+                     |x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x14+x15+x17+x18+x19+x21+x22+x26 , data =d)
+
+summary(m1)
+######
+fm_zip <- zipath(y1 ~ . | ., data = d, nlambda=10,family = "poisson")
+plot(residuals(fm_zip) ~ fitted(fm_zip))
+fm_zip_predict <- predict(object=fm_zip$fit, which=fm_zip$lambda.count,
+                           model=c("full"))
+coef(fm_zip, model = "count")
+coef(fm_zip, model = "zero")
+summary(fm_zip)
+logLik(fm_zip)
+
+pred <- predict(fm_zip)
+observedcalasses<-as.data.frame(d$y1)
+observedcalasses<-(ifelse(observedcalasses> 0.5, "1", "0"))
+predicted.classes <-(ifelse(pred> 0.2, "1", "0"))
+predicted.classes<-data.frame(predicted.classes)
+predicted.classes<-as.matrix(subset(predicted.classes,  select = c(X0.0099)))
+dim(observedcalasses)
+table<-table(predicted.classes,observedcalasses)
+confusionMatrix(table,positive="1" )
+
+
+predicted.classes<-predicted.classes[,1:10]
+p <- function(x){ifelse(x > 0.5, "1", "0")}
+predicted.classes<-apply(pred,2,p)
+
+predicted.classes %>% select_if(is.numeric)
+predicted.classes<-predicted.classes[1:2784,1]
+predicted.classes <-(ifelse(predicted.classes > 0.5, "1", "0"))
+observedcalasses<-d$y1
+table<-table(predicted.classes,observedcalasses)
+confusionMatrix(table,positive="1" )
+######
+
+
+
+
 fit<- glmnet(x, y,alpha=0.5,family="poisson")
+coef(fit.lasso, minBic)
 plot(fit)
-fitcv<- cv.glmnet(x.train, y.train,alpha=0.5,family="poisson")
+fitcv<- cv.glmnet(x.train, y.train,alpha=0.5,family="poisson",fold = 5)
  plot(fitcv)
  fitcv$lambda
  mean(fitcv$lambda)
@@ -114,8 +222,13 @@ coef1se<-coef(fitcv,s=lambda.1se)
 plot(coefmin)
 plot(coef1se)
 fit<- glmnet(x.train, y.train,alpha=0.5,lambda = 0.2046253,family="poisson")
-
   plot(fit$beta)
+
+   m1 <- pscl::zeroinfl(y1 ~x1+x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x13+x14+x15 +x17+x18+x19+x21+x22+x26  
+                     |x1+x2+x3+x4+x5+x6+x7+x9+x10+x11+x12+x14+x15+x17+x18+x19+x21+x22+x26 , data =d)
+  summary(m1)
+ summary(m1 <- pscl::zeroinfl(y1 ~.|x1+x2+x3+x4, data =d )) 
+
  d<-as.data.frame(d[,c(5,7,8,9,11,12,22,25,27,28)])
 ## with simple inflation (no regressors for zero component)
 
@@ -138,10 +251,8 @@ summary(d)
 dim(d)
 library(pscl)
 
-summary(m1 <- zeroinfl(y1 ~ x2+ï..x1+x3+x4+x5+x6+x7+x8+x9+x13+x14+x11+x17+x20+x22+x23+x24+x25+x26+x27|
-                      x2+ï..x1+x3+x4+x5+x6+x7+x8+x9+x13+x14+x11+x17+x20+x22+x23+x24+x25+x26+x27, data =d )) 
-
-summary(m1 <- zeroinfl(y1 ~x5+x7+x27+x8+x9+x11+x12+x22+x25+x7|x5, data = d))
+summary(m1 <- zeroinfl(y1 ~ .|., data =d )) 
+summary(m1 <- zeroinfl(y1 ~x5+x7+x8+x9+x11+x12+x22+x25+x7|x5, data = d))
 exp(cbind(C0=coef(m1),confint(m1)))
 library(boot)
 mnull <- update(m1, . ~ 1)
@@ -161,84 +272,3 @@ set.seed(10)
 res1 <- boot(d, f, R = 10, parallel = "snow", ncpus = 8)
 
 
-## print results
-res1
-## basic parameter estimates with percentile and bias adjusted CIs
-parms <- t(sapply(c(1, 3, 5, 7, 9,11,13,15,17,19), function(i) {
-  out <- boot.ci(res1, index = c(i, i + 1), type = "perc")
-  with(out, c(Est = t0, pLL = percent[4], pUL = percent[5]))
-              
-}))
-
-## add row names
-row.names(parms) <- names(coef(m1))
-## print results
-parms
-
-# compare with normal based approximation
-confint(m1)
-#exponentiated parameter estimates with percentile and bias adjusted CIs
-expparms <- t(sapply(c(1, 3, 5, 7, 9), function(i) {
-  out <- boot.ci(res1, index = c(i, i + 1), type = "perc", h = exp)
-  with(out, c(Est = t0, pLL = percent[4], pUL = percent[5]
-              ))
-}))
-
-## add row names
-#row.names(expparms) <- names(coef(m1))
-## print results
-expparms
-####### excluded unimportant variables#####]
-summary(m1 <- zeroinfl(y1 ~ x9+x12+x25+x27|x5, data = d))
-library(boot)
-mnull <- update(m1, . ~ 1)
-
-pchisq(2 * (logLik(m1) - logLik(mnull)), df = 8, lower.tail = FALSE)
-summary(p1 <- glm(y1 ~x5+x9+x12+x22+x25+x27, family = poisson, data = d))
-vuong(p1, m1)
-dput(coef(m1, "count"))
-dput(coef(m1, "zero"))
-f <- function(data, i) {
-  require(pscl)
-  m <- zeroinfl(y1 ~  x9+x12+x25+x27|x5,data = data[i, ],
-         start = list(count = c(0.6627 , -0.355 , 0.21830, 
-       -0.000208 , 0.11246 ), zero = c(4.8032, -1.2302)))
-  as.vector(t(do.call(rbind, coef(summary(m)))[, 1:2]))
-}
-set.seed(10)
-res1 <- boot(d, f, R = 10, parallel = "snow", ncpus = 8)
-
-
-## print results
-res1
-## basic parameter estimates with percentile and bias adjusted CIs
-parms <- t(sapply(c(1, 3, 5, 7, 9,11,13), function(i) {
-  out <- boot.ci(res1, index = c(i, i + 1), type = "perc")
-  with(out, c(Est = t0, pLL = percent[4], pUL = percent[5]))
-  
-}))
-
-## add row names
-row.names(parms) <- names(coef(m1))
-## print results
-parms
-
-# compare with normal based approximation
-confint(m1)
-#exponentiated parameter estimates with percentile and bias adjusted CIs
-expparms <- t(sapply(c(1, 3, 5, 7, 9,11,13), function(i) {
-  out <- boot.ci(res1, index = c(i, i + 1), type = "perc", h = exp)
-  with(out, c(Est = t0, pLL = percent[4], pUL = percent[5]
-  ))
-}))
-
-
-
-
-
-
-
-
-
-
-                  
